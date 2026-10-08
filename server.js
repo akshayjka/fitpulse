@@ -10,12 +10,12 @@ app.set('trust proxy', 1);
 
 // ---------- CONFIG (set these as environment variables) ----------
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fitpulse';
-const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123';              // admin password
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://akshayjai19001900_db_user:Akshay_2001@cluster0.fcvjhuq.mongodb.net/?appName=Cluster0';
+const ADMIN_KEY = process.env.ADMIN_KEY || 'Akshay_2001';              // admin password
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.createHash('sha256').update('fp:' + ADMIN_KEY).digest('hex');
 const ADMIN_PATH = (process.env.ADMIN_PATH || '/admin').replace(/\/+$/, ''); // e.g. /ops-x7k2 to hide it better
 const IS_PROD = process.env.NODE_ENV === 'production';
-if (IS_PROD && ADMIN_KEY === 'admin123') { console.error('Refusing to start: set a strong ADMIN_KEY'); process.exit(1); }
+if (IS_PROD && ADMIN_KEY === 'Akshay_2001') { console.error('Refusing to start: set a strong ADMIN_KEY'); process.exit(1); }
 
 // ---------- MIDDLEWARE ----------
 app.use(cors({ origin: false }));            // same-origin only
