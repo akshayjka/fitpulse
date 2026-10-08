@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin Login</title>
+<style>
+:root{--bg:#0b1220;--card:#111a2e;--ink:#f1f5f9;--mut:#94a3b8;--line:#1e293b;--ac:#10b981;--danger:#ef4444}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at top,#10b98122,transparent 40%),var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:32px;box-shadow:0 25px 70px #0006}
+.logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:800;margin-bottom:28px}
+.logo span{background:var(--ac);color:#fff;padding:5px 9px;border-radius:8px;font-size:14px}
+h1{margin:0 0 8px;font-size:28px}.muted{color:var(--mut);margin-bottom:28px}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
+input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:#0b1220;color:var(--ink);outline:none;font-size:16px}
+input:focus{border-color:var(--ac);box-shadow:0 0 0 3px #10b98122}
+button{width:100%;margin-top:18px;padding:13px;border:0;border-radius:10px;background:var(--ac);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}.error{min-height:20px;margin-top:12px;color:var(--danger);font-size:13px}
+</style></head>
+<body>
+<div class="card">
+  <div class="logo"><span>FP</span>FitPulse CRM</div>
+  <h1>Admin Login</h1>
+  <div class="muted">Authorised staff only.</div>
+  <form id="f">
+    <label for="pw">Admin Password</label>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="Enter admin password" required autofocus>
+    <button id="b" type="submit">Login to Admin</button>
+    <div id="err" class="error"></div>
+  </form>
+</div>
+<script>
+const f=document.getElementById('f'),pw=document.getElementById('pw'),b=document.getElementById('b'),err=document.getElementById('err');
+f.addEventListener('submit',async e=>{
+  e.preventDefault();err.textContent='';
+  const v=pw.value;if(!v){err.textContent='Please enter your password.';return}
+  b.disabled=true;b.textContent='Signing in...';
+  try{
+    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:v})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.success)throw new Error(d.error||'Invalid admin credentials');
+    location.href=location.pathname.replace(/\/+$/,'')+'/dashboard';
+  }catch(x){err.textContent=x.message||'Login failed.';pw.value='';pw.focus()}
+  finally{b.disabled=false;b.textContent='Login to Admin'}
+});
+</script>
+</body></html>

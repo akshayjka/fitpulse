@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>FitPulse CRM — Admin Dashboard</title>
+<style>
+:root{--bg:#0b1220;--card:#111a2e;--ink:#f1f5f9;--mut:#94a3b8;--line:#1e293b;--ac:#10b981;--ac2:#06251c}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(60% 50% at 50% 0,#10b98133,transparent),var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+.w{max-width:1200px;margin:auto;padding:0 20px}
+.topbar{position:sticky;top:0;z-index:10;background:#0b1220ee;backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.ti{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px}
+.logo{background:var(--ac);color:#fff;border-radius:8px;padding:2px 7px;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-block;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 15px;border-radius:9px;font:600 14px inherit;cursor:pointer;text-decoration:none}
+.btn:hover{transform:translateY(-1px)}.btn.primary{background:var(--ac);color:#fff;border-color:var(--ac)}
+.page{padding:35px 0 60px}h1{margin:0;font-size:clamp(28px,5vw,42px)}.muted{color:var(--mut)}
+.grid{display:grid;gap:18px}.stats{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:25px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+.number{font-size:36px;font-weight:800;color:var(--ac)}.settings{margin-bottom:20px}
+.row{display:flex;gap:10px;margin-top:10px}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}
+.filters{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap}.filters input{flex:1;min-width:220px}.filters select{width:180px}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--mut)}
+td .btn{margin-right:5px;padding:6px 10px;font-size:12px}td select{width:auto}
+#toast{position:fixed;left:50%;bottom:25px;transform:translateX(-50%) translateY(100px);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:12px;transition:.3s;z-index:100}
+#toast.show{transform:translateX(-50%) translateY(0)}
+@media(max-width:700px){.ti{flex-direction:column;align-items:flex-start;padding:14px 0}.row,.filters{flex-direction:column}.filters select{width:100%}}
+</style></head>
+<body>
+<div class="topbar"><div class="w ti">
+  <div class="brand"><span class="logo">FP</span>FitPulse CRM Admin</div>
+  <div class="actions">
+    <a class="btn" href="/" target="_blank" rel="noopener">View website ↗</a>
+    <button class="btn primary" onclick="downloadCSV()">Download CSV</button>
+    <button class="btn" onclick="logout()">Logout</button>
+  </div>
+</div></div>
+
+<main class="page"><div class="w">
+  <h1>Admin Dashboard</h1>
+  <p class="muted">Manage enquiries, leads and demo settings.</p>
+  <div class="grid stats" id="stats"></div>
+
+  <div class="card settings">
+    <strong>Demo URL</strong>
+    <div class="muted">YouTube/Loom embed URL shown in the public demo section (must start with https://).</div>
+    <div class="row"><input id="demoUrl" placeholder="https://www.youtube.com/embed/..."><button class="btn primary" onclick="saveDemoUrl()">Save</button></div>
+  </div>
+
+  <div class="filters">
+    <input id="search" placeholder="Search name, gym or city..." oninput="render()">
+    <select id="statusFilter" onchange="render()">
+      <option value="">All statuses</option><option>New</option><option>Contacted</option><option>Converted</option><option>Lost</option>
+    </select>
+  </div>
+
+  <div class="card tw"><table>
+    <thead><tr><th>Name</th><th>Gym</th><th>Phone</th><th>City</th><th>Plan</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table></div>
+</div></main>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const LOGIN=location.pathname.replace(/\/dashboard\/?$/,'')||'/';
+let leads=[];
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function toast(m){const e=$('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2500)}
+
+async function api(url,opt={}){
+  const r=await fetch(url,{...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}});
+  if(r.status===401){location.replace(LOGIN);throw new Error('Unauthorized')}
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||'Request failed');
+  return d;
+}
+
+async function load(){
+  try{
+    leads=await api('/api/enquiries');
+    const s=await fetch('/api/settings').then(r=>r.json()).catch(()=>({}));
+    $('demoUrl').value=s.demoUrl||'';
+    render();
+  }catch(e){console.error(e);toast('Unable to load dashboard')}
+}
+
+function render(){
+  const q=$('search').value.trim().toLowerCase(),st=$('statusFilter').value;
+  const list=leads.filter(l=>{
+    const t=[l.name,l.gymName,l.city,l.phone].join(' ').toLowerCase();
+    return (!q||t.includes(q))&&(!st||l.status===st);
+  });
+  const total=leads.length,conv=leads.filter(l=>l.status==='Converted').length;
+  const today=leads.filter(l=>new Date(l.created_at).toDateString()===new Date().toDateString()).length;
+  const pend=leads.filter(l=>l.status==='New'||l.status==='Contacted').length;
+  $('stats').innerHTML=[[total,'Total enquiries'],[(total?Math.round(conv/total*100):0)+'%','Conversion rate'],[today,'New today'],[pend,'Pending follow-ups']]
+    .map(s=>`<div class="card"><div class="number">${s[0]}</div>${s[1]}</div>`).join('');
+  $('tableBody').innerHTML=list.length?list.map(l=>{
+    const wa=String(l.phone||'').replace(/\D/g,'');
+    return `<tr><td>${esc(l.name)}</td><td>${esc(l.gymName)}</td><td>${esc(l.phone)}</td><td>${esc(l.city)}</td><td>${esc(l.planInterest)}</td>
+    <td><select onchange="updateStatus('${esc(l._id)}',this.value)">${['New','Contacted','Converted','Lost'].map(v=>`<option${v===l.status?' selected':''}>${v}</option>`).join('')}</select></td>
+    <td>${new Date(l.created_at).toLocaleDateString('en-IN')}</td>
+    <td><a class="btn" href="tel:${esc(l.phone)}">Call</a><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${wa}">WhatsApp</a></td></tr>`;
+  }).join(''):'<tr><td colspan="8" class="muted">No enquiries found.</td></tr>';
+}
+
+async function updateStatus(id,status){
+  try{
+    await api('/api/enquiries/'+id,{method:'PUT',body:JSON.stringify({status})});
+    const l=leads.find(x=>x._id===id);if(l)l.status=status;
+    render();toast('Status updated');
+  }catch(e){toast('Failed to update status')}
+}
+
+async function saveDemoUrl(){
+  try{
+    await api('/api/settings',{method:'PUT',body:JSON.stringify({demoUrl:$('demoUrl').value.trim()})});
+    toast('Demo URL saved');
+  }catch(e){toast(e.message||'Failed to save demo URL')}
+}
+
+function downloadCSV(){
+  const h=['name','gymName','phone','city','members','planInterest','status','created_at'];
+  const rows=[h.join(',')].concat(leads.map(l=>h.map(k=>`"${String(l[k]??'').replace(/"/g,'""')}"`).join(',')));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'}));
+  a.download='gym_enquiries.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
+async function logout(){
+  try{await fetch('/api/admin/logout',{method:'POST'})}catch(e){}
+  location.replace(LOGIN);
+}
+load();
+</script>
+</body></html>
